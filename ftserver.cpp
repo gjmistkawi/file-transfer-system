@@ -49,7 +49,7 @@ bool sendMessage(int connection);
 //=============================================================================================
 
 int main(int argc, char **argv) {
-    //checkInput(argc, argv);
+    checkInput(argc, argv);
     cout << "Server open on " << argv[1] << endl;
     struct sockaddr_in address;
     getAddress(atoi(argv[1]), &address);
@@ -83,6 +83,29 @@ int main(int argc, char **argv) {
 //=================================       FUNCTIONS        ====================================
 //=============================================================================================
 
+//checkInput:    Checks the users command line arguments to check if program is being called correctly
+//arguments:     argc(the number of command line arguments) argv(the command line as an array of character arrays)
+//return values: exits program if invalid input, otherwise none
+void checkInput(int argc, char **argv) {
+    //making sure the function is called with proper number of arguments
+    if(argc != 2)
+    {
+        cout << "Usage: ftserver <port#>" << endl;
+        exit(1);
+    }
+
+    //making sure a valid int was entered for a port number
+    int portNum = atoi(argv[1]);
+    if(portNum == 0)
+    {
+        cout << "Please input a valid interger port number" << endl;
+        exit(1);
+    }
+}
+
+//openSocket:    Opens an available socket for communication
+//arguments:     none
+//return values: returns an open socket, or exits if unable to open a socket
 int openSocket() {
     int sock;
     if((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
@@ -94,16 +117,18 @@ int openSocket() {
     return sock;
 }
 
-//get address for connection
+//getAddress:    Gets address for connection to be established
+//arguments:     portNum(desired port number) address(pointer to a socket address struct, passed by reference)
+//return values: none
 void getAddress(int portNum, struct sockaddr_in *address) {
     address->sin_family = AF_INET;
     address->sin_port = htons(portNum);
     address->sin_addr.s_addr = INADDR_ANY;
 }
 
-//recieveMessage:   waits for and recieves message from server connection
-//arguments:        connection(open socket connection)
-//return values:    tells whether a message was recieved or whether the connection has been closed
+//recieveMessage: Waits for and recieves message from server connection
+//arguments:      connection(open socket connection)
+//return values:  tells whether a message was recieved or whether the connection has been closed
 bool recieveMessage(int connection)
 {
     int numbytes;
@@ -128,9 +153,9 @@ bool recieveMessage(int connection)
     return true;
 }
 
-//sendMessage:      sends user message to already established connection
-//arguments:        username(handle to prepend to each message) connection(open socket connection)
-//return values:    tells whether the message was sent correctly or whether the connection has been closed
+//sendMessage:   Sends user message to already established connection
+//arguments:     username(handle to prepend to each message) connection(open socket connection)
+//return values: tells whether the message was sent correctly or whether the connection has been closed
 bool sendMessage(int connection)
 {
     string message = "test success";

@@ -22,8 +22,38 @@ import sys
 #checkInput:    checks for valid function call and proper use input, exits and
                     #prints error message if there is an issue
 #arguments:     none
-#return values: none b
-#def checkInput():
+#return values: none
+def checkInput():
+    #check for valid flip server name
+    if(sys.argv[1] != "flip1" and sys.argv[1] != "flip2" and sys.argv[1] != "flip3"):
+        print("Server invalid: use flip1, flip2, or flip3\n")
+        exit(1)
+
+    #check if portnumber field is int
+    if not(isinstance(sys.argv[2],int)):
+        print("Port invalid: please provide an integer port number\n")
+        exit(1)
+
+    #check for valid command
+    if(sys.argv[3] != "-l" and sys.argv[3] != "-g"):
+        print("Command invalid: please enter either '-l'(list) or '-g <filename>'(get file)\n")
+        exit(1)
+
+    #check for list command and matching inputs
+    if(sys.argv[3] == "-1"):
+        if(isinstance(sys.argv[4],int) and len(sys.argv) == 5 and sys.argv[2] != sys.argv[4]):
+            return
+        else:
+            print("Command invalid: ftclient flip# <port#1> -l <port#2>\n")
+            exit(1)
+
+    #check for get command and matching inputs
+    if(sys.argv[3] == "-g"):
+        if(isinstance(sys.argv[5],int) and len(sys.argv) == 6 and sys.argv[2] != sys.argv[5]):
+            return
+        else:
+            print("Command invalid: ftclient flip# <port#1> -g <filename> <port#2>\n")
+            exit(1)
 
 #initialConnection: connects to open server socket based on user input
 #arguments:         none
@@ -62,8 +92,8 @@ def testConnection(connection):
 
 #program called by "python ftclient.py <flip#> <port_number> <command> <if g: file_name> <port_number>"
 if __name__ == "__main__":
-    #checkInput()                    #check for valid program call
-    connection = initialConnection()       #start initial connection
+    checkInput()                        #check for valid program call
+    connection = initialConnection()    #start initial connection
     testConnection(connection);
-    #dataTransaction(connection)         #make secondary connection and transfer requested data
+    #dataTransaction(connection)        #make secondary connection and transfer requested data
     connection.close()                  #close socket before exit
