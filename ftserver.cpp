@@ -31,17 +31,24 @@ Last Modified 11/21/2018
 #include <arpa/inet.h>
 #include <cstring>
 #include <cstdlib>
+#include <sstream>
+#include <vector>
 
-#define MAXSIZE 501
+#define MAXSIZE 2000
 
 using namespace std;
 
-void checkInput(int argc, char **argv);
+
+string recieveCommand(int commandConnection);
+int clientToServer(struct sockaddr_in *serverAddress, struct sockaddr_in *clientAddress);
+int serverToClient(int clientPort, struct sockaddr_in *clientAddress);
 void getAddress(int portNum, struct sockaddr_in *address);
 int openSocket();
-int makeConnection();
-bool recieveMessage(int connection);
-bool sendMessage(int connection);
+void checkInput(int argc, char **argv);
+
+//NOT DONT ==================================================================
+void sendFile();
+void sendList();
 
 
 //=============================================================================================
@@ -49,42 +56,131 @@ bool sendMessage(int connection);
 //=============================================================================================
 
 int main(int argc, char **argv) {
-    checkInput(argc, argv);
+    checkInput(argc, argc);
     cout << "Server open on " << argv[1] << endl;
-    struct sockaddr_in address;
-    getAddress(atoi(argv[1]), &address);
+    struct sockaddr_in serverAddress;
 
+    //create address from user specified port number
+    getAddress(atoi(argv[1]), &serverAddress);
+
+    //loop until SIGINT from an admin
     while(true) {
-        //create server socket
-        int socket = openSocket();
+        //connect to client and get client address
+        struct sockaddr_in clientAddress;
+        int commandConnection = clientToServer(&serverAddress, &clientAddress);
 
-        //bind the socket to our specified address and port
-        bind(socket, (struct sockaddr *) &address, sizeof(address));
+        //get command from client
+        char *command = recieveCommand();
 
-        //listen for signal from client
-        listen(socket,5);
+        int dataConnection = serverToClient(clientPort, &clientAddress);
 
-        //https://www.geeksforgeeks.org/accept-system-call/
-        //help with accepting client address goes to this article
-        int connection = accept(socket,NULL,NULL);
+        //https://www.geeksforgeeks.org/extract-integers-string-c/
+        getsocketnumber(); ========================================================
+        if(command == "-l") {
 
-        if(recieveMessage(connection)) {
-            bool temp = sendMessage(connection);
         }
 
-        //close socket
-        close(connection);
-    }
+        else if(command == "-g") {
 
-    return 0;
+        }
+
+        //else {
+        //    sendErrorMessage();
+        //}
+
+        close(commandConnection);
+        close(dataConnection);
+    }
 }
 
 //=============================================================================================
 //=================================       FUNCTIONS        ====================================
 //=============================================================================================
 
+//recieveCommand: recieves command message from client
+//arguments:      commandConnection(open connection to client)
+//return values:  returns the command message as a char array
+string recieveCommand(int commandConnection) {
+    int numBytes;
+    char message[MAXSIZE];
+
+    //get message from client
+    if((numBytes = recv(commandConnection, &message, MAXSIZE-1, 0)) == -1) {
+        cout << "Error recieving message from client" << endl;
+        cout << "Closing connection to client" << endl;
+        return NULL;
+    }
+
+    message[numBytes] = '\0';
+    return message;
+}
+
+
+//clientToServer: Opens socket on server and waits for client to connect
+//arguments:      serverAddress(address specified by server and user input)
+//                clientAddress(pass by reference to grab client address from accept)
+//return values:  returns open connection from client to server
+int clientToServer(struct sockaddr_in *serverAddress, struct sockaddr_in *clientAddress) {
+    //open socket on server
+    int sock = openSocket();
+
+    //bind socket to specified address and port number
+    bind(sock, (struct sockaddr *) serverAddress, sizeof(*serverAddress));
+
+    //wait for client side
+    listen(sock,5);
+
+    //https://www.geeksforgeeks.org/accept-system-call/
+    //help with accepting client address goes to this article
+    int connection = accept(sock, (struct sockaddr *) clientAddress, sizeof(*clientAddress));
+
+    return connection;
+}
+
+//serverToClient: Opens a second connection for data transfer
+//arguments:      clientSocket(port number sent from client side)
+//                clientAddress(pointer to address object recieved by accept statement)
+//return values:  returns an open connection from server to client
+int serverToClient(int clientPort, struct sockaddr_in *clientAddress) {
+    int sock = openSocket();
+
+    clientAddress->sin_port = htons(clientPort);
+
+    if(connect(sock, (struct sockaddr *) clientAddress, sizeof(clientAddress)) == -1) {
+        cout << "Error establishing connection Q to client" << endl;
+        exit(1);
+    }
+
+    return sock;
+}
+
+//getAddress:    Gets address for connection to be established
+//arguments:     portNum(desired port number)
+//               address(pointer to a socket address struct, passed by reference)
+//return values: none
+void getAddress(int portNum, struct sockaddr_in *address) {
+    address->sin_family = AF_INET;
+    address->sin_port = htons(portNum);
+    address->sin_addr.s_addr = INADDR_ANY;
+}
+
+//openSocket:    Opens an available socket for communication
+//arguments:     none
+//return values: returns an open socket, or exits if unable to open a socket
+int openSocket() {
+    int sock;
+    if((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    {
+        cout << "Error creating socket." << endl;
+        exit(1);
+    }
+
+    return sock;
+}
+
 //checkInput:    Checks the users command line arguments to check if program is being called correctly
-//arguments:     argc(the number of command line arguments) argv(the command line as an array of character arrays)
+//arguments:     argc(the number of command line arguments)
+//               argv(the command line as an array of character arrays)
 //return values: exits program if invalid input, otherwise none
 void checkInput(int argc, char **argv) {
     //making sure the function is called with proper number of arguments
@@ -103,66 +199,20 @@ void checkInput(int argc, char **argv) {
     }
 }
 
-//openSocket:    Opens an available socket for communication
-//arguments:     none
-//return values: returns an open socket, or exits if unable to open a socket
-int openSocket() {
-    int sock;
-    if((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-    {
-        cout << "Error creating socket." << endl;
-        exit(1);
-    }
 
-    return sock;
-}
 
-//getAddress:    Gets address for connection to be established
-//arguments:     portNum(desired port number) address(pointer to a socket address struct, passed by reference)
-//return values: none
-void getAddress(int portNum, struct sockaddr_in *address) {
-    address->sin_family = AF_INET;
-    address->sin_port = htons(portNum);
-    address->sin_addr.s_addr = INADDR_ANY;
-}
-
-//recieveMessage: Waits for and recieves message from server connection
-//arguments:      connection(open socket connection)
-//return values:  tells whether a message was recieved or whether the connection has been closed
-bool recieveMessage(int connection)
-{
-    int numbytes;
-    char message[MAXSIZE];
-    if((numbytes = recv(connection, &message, MAXSIZE-1, 0)) == -1)
-    {
-        cout << "Error recieving message from server" << endl;
-        cout << "Closing connection with server" << endl;
-        return true;
-    }
-
-    message[numbytes] = '\0';
-    string temp = message;
-    cout << temp << endl;
-    if(temp.find("test sent") == -1)
-    {
-        cout << "Server closed, exiting program" << endl;
-        return false;
-    }
-
-    cout << message << endl;
-    return true;
-}
+//===============================================================================================
+//===============================================================================================
+//===============================================================================================
 
 //sendMessage:   Sends user message to already established connection
 //arguments:     username(handle to prepend to each message) connection(open socket connection)
 //return values: tells whether the message was sent correctly or whether the connection has been closed
-bool sendMessage(int connection)
-{
+bool sendMessage(int connection) {
     string message = "test success";
     int size = strlen(message.c_str());
 
-    if(send(connection, message.c_str(), size, 0) == -1)
-    {
+    if(send(connection, message.c_str(), size, 0) == -1) {
         cout << "Error sending message to server" << endl;
         cout << "Closing connection to server" << endl;
         return true;
