@@ -32,7 +32,7 @@ def initialConnection():
     server = sys.argv[1] + ".engr.oregonstate.edu"
     port = int(sys.argv[2])
     connection = socket(AF_INET,SOCK_STREAM)
-    connection.connect(server,port)     #referenced https://docs.python.org/2/howto/sockets.html
+    connection.connect((server,port))     #referenced https://docs.python.org/2/howto/sockets.html
     return connection
 
 
@@ -50,9 +50,9 @@ def initialConnection():
 def testConnection(connection):
     connection.send("test sent")
     message = connection.recv(50)
-    if(message == "test success")
+    if(message == "test success"):
         print("Test passed: connection working")
-    else
+    else:
         print("Test failed: connection not working")
 
 
@@ -63,7 +63,7 @@ def testConnection(connection):
 #program called by "python ftclient.py <flip#> <port_number> <command> <if g: file_name> <port_number>"
 if __name__ == "__main__":
     #checkInput()                    #check for valid program call
-    connection = intialConnection()       #start initial connection
+    connection = initialConnection()       #start initial connection
     testConnection(connection);
     #dataTransaction(connection)         #make secondary connection and transfer requested data
     connection.close()                  #close socket before exit
