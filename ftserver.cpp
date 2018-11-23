@@ -39,7 +39,7 @@ Last Modified 11/21/2018
 using namespace std;
 
 
-string recieveCommand(int commandConnection);
+vector<string> recieveCommand(int commandConnection);
 int clientToServer(struct sockaddr_in *serverAddress, struct sockaddr_in *clientAddress);
 int serverToClient(int clientPort, struct sockaddr_in *clientAddress);
 void getAddress(int portNum, struct sockaddr_in *address);
@@ -47,6 +47,7 @@ int openSocket();
 void checkInput(int argc, char **argv);
 
 //NOT DONT ==================================================================
+void sendMessage(int connection, string message);
 void sendFile();
 void sendList();
 
@@ -59,6 +60,7 @@ int main(int argc, char **argv) {
     checkInput(argc, argc);
     cout << "Server open on " << argv[1] << endl;
     struct sockaddr_in serverAddress;
+    int dataConnection, commandConnection;
 
     //create address from user specified port number
     getAddress(atoi(argv[1]), &serverAddress);
@@ -67,26 +69,33 @@ int main(int argc, char **argv) {
     while(true) {
         //connect to client and get client address
         struct sockaddr_in clientAddress;
-        int commandConnection = clientToServer(&serverAddress, &clientAddress);
+        if((commandConnection = clientToServer(&serverAddress, &clientAddress)) == -1) {
+            continue;
+        }
 
         //get command from client
-        char *command = recieveCommand();
-
-        int dataConnection = serverToClient(clientPort, &clientAddress);
-
-        //https://www.geeksforgeeks.org/extract-integers-string-c/
-        getsocketnumber(); ========================================================
-        if(command == "-l") {
-
+        vector<string> command = recieveCommand();
+        if(command == NULL) {
+            close(commandConnection);
+            continue;
         }
 
-        else if(command == "-g") {
-
+        //connect to open socket on client for data transfer
+        if((dataConnection = serverToClient(stoi(*command[1]), &clientAddress)) == -1) {
+            continue;
         }
 
-        //else {
-        //    sendErrorMessage();
-        //}
+        //list command
+        if(*command[0] == "-l") {
+            cout << "-l" << *command[1] << endl;
+            sendMessage(dataConnection, "list");
+        }
+
+        //get file command
+        else if(*command[0] == "-g") {
+            cout << "-g" << *command[1] << endl;
+            sendMessage(dataConnection, "file");
+        }
 
         close(commandConnection);
         close(dataConnection);
@@ -97,10 +106,10 @@ int main(int argc, char **argv) {
 //=================================       FUNCTIONS        ====================================
 //=============================================================================================
 
-//recieveCommand: recieves command message from client
+//recieveCommand: recieves and parses command message from client
 //arguments:      commandConnection(open connection to client)
-//return values:  returns the command message as a char array
-string recieveCommand(int commandConnection) {
+//return values:  returns a vector of the command message
+vector<string> recieveCommand(int commandConnection) {
     int numBytes;
     char message[MAXSIZE];
 
@@ -112,7 +121,16 @@ string recieveCommand(int commandConnection) {
     }
 
     message[numBytes] = '\0';
-    return message;
+
+    //help with breaking down the command goes to this post
+    //https://codereview.stackexchange.com/questions/159628/c-split-string-into-a-vector
+    string temp = message;
+    vector<string> command;
+    istringstream ss{temp};                     //open string stream with message
+    using itr = istream_iterator<string>;       //create iterator for ss
+    vector<string> command{itr{ss}, itr{}};     //iterate and grab all elements of ss
+
+    return command;
 }
 
 
@@ -148,7 +166,7 @@ int serverToClient(int clientPort, struct sockaddr_in *clientAddress) {
 
     if(connect(sock, (struct sockaddr *) clientAddress, sizeof(clientAddress)) == -1) {
         cout << "Error establishing connection Q to client" << endl;
-        exit(1);
+        return -1;
     }
 
     return sock;
@@ -208,15 +226,11 @@ void checkInput(int argc, char **argv) {
 //sendMessage:   Sends user message to already established connection
 //arguments:     username(handle to prepend to each message) connection(open socket connection)
 //return values: tells whether the message was sent correctly or whether the connection has been closed
-bool sendMessage(int connection) {
-    string message = "test success";
+void sendMessage(int connection, string message) {
     int size = strlen(message.c_str());
 
     if(send(connection, message.c_str(), size, 0) == -1) {
         cout << "Error sending message to server" << endl;
         cout << "Closing connection to server" << endl;
-        return true;
     }
-
-    return false;
 }
