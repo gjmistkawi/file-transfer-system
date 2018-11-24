@@ -34,8 +34,9 @@ Last Modified 11/21/2018
 #include <sstream>
 #include <vector>
 #include <iterator>
+#include <dirent.h>
 
-#include<errno.h>
+//#include<errno.h>
 
 #define MAXSIZE 2000
 
@@ -96,7 +97,7 @@ int main(int argc, char **argv) {
 
         //list command
         if(command[0] == "-l") {
-            cout << command[0] << " "<< command[1] << endl;
+            sendDirectory(dataConnection);
             sendMessage(dataConnection, "list");
         }
 
@@ -114,6 +115,30 @@ int main(int argc, char **argv) {
 //=============================================================================================
 //=================================       FUNCTIONS        ====================================
 //=============================================================================================
+
+//sendDirectory: reads the contents of current directory and sends file names them to client
+//arguments:     dataConnection(open connection to the client)
+//return values: none
+void sendDirectory(int dataConnection) {
+    //help with grabbing contents from a directory goes to this article
+    //http://www.martinbroadhurst.com/list-the-files-in-a-directory-in-c.html
+    vecotr<string> contents;
+    string dirName = ".";
+    DIR* dirp = opendir(dirName.c_str());
+
+    struct dirent * dp;
+    while ((dp = readdir(dirp)) != NULL) {
+        contents.push_back(dp->d_name);
+    }
+
+    closedir(dirp);
+
+    for(int i = 0; i < contents.size(); i++) {
+        sendMessage(dataConnection, contents[i]);
+    }
+}
+
+
 //listenSocket:  Opens the listening socket with the serveraddress
 //arguments:     serverAddress(address specified by server and user input)
 //return values: returns an open socket
