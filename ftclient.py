@@ -85,22 +85,38 @@ def sendCommand(connection):
     message = sys.argv[3]
     if(message == "-l"):
         message += " " + sys.argv[4]
+        command = "-l"
     elif(message == "-g"):
         message += " " +  sys.argv[5] + " " + sys.argv[4]
+        command = "-g"
 
     connection.send(message)
-    print(message)  #delete later
+    return command
 
 
 #recieveData:   Sends command message to server
 #arguments:     connection(open connection to server)
 #return values: none
 def recieveData(connection):
-    data = connection.recv(50)
-    data = "data: " + data
+    temp = connection.recv(2000)
+    while(temp != ""):
+        temp = connection.recv(2000)
+        data += temp
+    return data
+
+#printDirectory: prints the directory contents from the server
+#arguments:      data(the directory contents provided by the server)
+#return values:  none
+def printDirectory(data):
+    for file in data.split():
+        print(file)
+
+#saveFile:      saves file data that was sent from server
+#arguments:     file contents sent from server
+#return values: none
+def saveFile(data):
     print(data)
-
-
+    
 #=============================================================================================
 #=================================         MAIN          =====================================
 #=============================================================================================
@@ -109,9 +125,14 @@ def recieveData(connection):
 if __name__ == "__main__":
     portNum = checkInput()                            #check for valid program call
     commandConnection = commandConnection() #start initial connection
-    sendCommand(commandConnection)          #send command to server
+    command = sendCommand(commandConnection)          #send command to server
     dataConnection = dataConnection(portNum)       #make secondary connection
-    recieveData(dataConnection)             #recieve data from server
+    data = recieveData(dataConnection)             #recieve data from server
+
+    if(command == "-l"):
+        printDirectory(data)
+    elif(command == "-g"):
+        saveFile(data)
 
     dataConnection.close()                  #clean up
     commandConnection.close()
