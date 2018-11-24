@@ -13,6 +13,7 @@
 #Last Modified 11/21/2018
 
 from socket import *
+import os.path
 import sys
 
 #=============================================================================================
@@ -50,10 +51,15 @@ def checkInput():
     #check for get command and matching inputs
     if(sys.argv[3] in "-g"):
         if(int(sys.argv[5]) != 0 and len(sys.argv) == 6 and sys.argv[2] != sys.argv[5]):
-            return int(sys.argv[5])
+            if(os.path.isfile(sys.argv[4])):
+                print("Error: file already exists locally, please choose a different file \n")
+                exit(1)
+            else:
+                return int(sys.argv[5])
         else:
             print("Command invalid: ftclient flip# <port#1> -g <filename> <port#2>\n")
             exit(1)
+
 
 
 #commandConnection: connects to open server socket based on user input
@@ -98,10 +104,10 @@ def sendCommand(connection):
 #arguments:     connection(open connection to server)
 #return values: none
 def recieveData(connection):
-    temp = connection.recv(2000)
+    temp = connection.recv(1050)
     data = temp + " "
     while(temp != ""):
-        temp = connection.recv(2000)
+        temp = connection.recv(1050)
         data += temp + " "
     return data
 
@@ -116,8 +122,9 @@ def printDirectory(data):
 #saveFile:      saves file data that was sent from server
 #arguments:     file contents sent from server
 #return values: none
-def saveFile(data, filename):
-    print(data)
+def saveFile(data, fileName):
+    file = open(fileName, 'w+')
+    file.write(data)
 
 #=============================================================================================
 #=================================         MAIN          =====================================

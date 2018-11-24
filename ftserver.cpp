@@ -35,10 +35,12 @@ Last Modified 11/21/2018
 #include <vector>
 #include <iterator>
 #include <dirent.h>
+#include <fstream>
+#include <fcntl.h>
 
 //#include<errno.h>
 
-#define MAXSIZE 2000
+#define MAXSIZE 1024
 
 using namespace std;
 
@@ -51,7 +53,8 @@ int openSocket();
 void checkInput(int argc, char **argv);
 int listenSocket(struct sockaddr_in *serverAddress);
 void sendDirectory(int dataConnection);
-
+void sendFile(int dataConnection, string fileName);
+bool fileExists(string fileName);
 
 //NOT DONT ==================================================================
 int sendMessage(int connection, string message);
@@ -105,8 +108,15 @@ int main(int argc, char **argv) {
 
         //get file command
         else if(command[0] == "-g") {
-            cout << command[0] << " "<< command[2] << endl;
-            int x = sendMessage(dataConnection, "file");
+            string fileName = command[3];
+            if(fileExists(fileName)) {
+                sendFile(dataConnection, fileName);
+            }
+
+            else {
+                cout << "File not found. Sending error message to " << command[1] << ":" << command[2] << "." << endl;
+                int i = sendMessage(dataConnection, "ERROR: FILE NOT FOUND");
+            }
         }
 
         close(commandConnection);
@@ -117,6 +127,50 @@ int main(int argc, char **argv) {
 //=============================================================================================
 //=================================       FUNCTIONS        ====================================
 //=============================================================================================
+
+//fileExists:    Checks current working directory for a file with given name
+//arguments:     fileName(name of the file searched for)
+//return values: returns true if file exists, otherwise false
+bool fileExists(string fileName) {
+    //found how to check if a file exists here
+    //https://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c
+    ifstream f(fileName.c_str());
+    return f.good();
+}
+
+//sendFile:      Sends the file to client in pieces until complete
+//arguments:     dataConnection(open connection to the client)
+//               fileName(name of the client specified file)
+//return values: none
+void sendFile(int dataConnection, string fileName) {
+    //help with file sending from this article
+    //https://stackoverflow.com/questions/11952898/c-send-and-receive-file
+    char buff[MAXSIZE];
+    memset(buff, 0, sizeof(buff));                  //clear the buffer
+    int file = open(fileName.c_str(), O_RDONLY);    //open the file
+
+    while(true) {                                   //get size of the file
+        int byteSize = read(file, buff, sizeof(buff)-1);
+        if(byteSize == 0) {
+            break;
+        }
+
+        void* temp = buff;                          //void pointer to save what content hasn't been sent
+        while(byteSize > 0) {
+            int bytesWritten = sendMessage(dataConnection, buff);   //send partially to client
+            if(bytesWritten < 0) {
+                cout << "Error sending message" << endl;
+                return;
+            }
+
+            byteSize -= bytesWritten;               //how many bytes are left
+            temp = (char*)temp + bytesWritten;      //move our place holder to whats left
+        }
+
+        memset(buff, 0, sizeof(buff));              //reset the buffer to grab more info
+    }
+}
+
 
 //sendDirectory: reads the contents of current directory and sends file names them to client
 //arguments:     dataConnection(open connection to the client)
@@ -279,12 +333,13 @@ void checkInput(int argc, char **argv) {
 //return values: tells whether the message was sent correctly or whether the connection has been closed
 int sendMessage(int connection, string message) {
     int size = strlen(message.c_str());
+    size = send(connection, message.c_str(), size, 0);
 
-    if(send(connection, message.c_str(), size, 0) == -1) {
+    if(size == -1) {
         cout << "Error sending message to client" << endl;
         cout << "Closing connection to client" << endl;
         return -1;
     }
 
-    return 0;
+    return size;
 }
