@@ -33,6 +33,9 @@ Last Modified 11/21/2018
 #include <cstdlib>
 #include <sstream>
 #include <vector>
+#include <iterator>
+
+#include<errno.h>
 
 #define MAXSIZE 2000
 
@@ -40,11 +43,13 @@ using namespace std;
 
 
 vector<string> recieveCommand(int commandConnection);
-int clientToServer(struct sockaddr_in *serverAddress, struct sockaddr_in *clientAddress);
+int clientToServer(int sock, struct sockaddr_in *serverAddress, struct sockaddr_in *clientAddress);
 int serverToClient(int clientPort, struct sockaddr_in *clientAddress);
 void getAddress(int portNum, struct sockaddr_in *address);
 int openSocket();
 void checkInput(int argc, char **argv);
+int listenSocket(struct sockaddr_in *serverAddress);
+
 
 //NOT DONT ==================================================================
 void sendMessage(int connection, string message);
@@ -57,43 +62,47 @@ void sendList();
 //=============================================================================================
 
 int main(int argc, char **argv) {
-    checkInput(argc, argc);
+    checkInput(argc, argv);
     cout << "Server open on " << argv[1] << endl;
-    struct sockaddr_in serverAddress;
     int dataConnection, commandConnection;
+    int serverPort = atoi(argv[1]);
 
     //create address from user specified port number
-    getAddress(atoi(argv[1]), &serverAddress);
+    struct sockaddr_in serverAddress;
+    getAddress(serverPort, &serverAddress);
+
+    int sock = listenSocket(&serverAddress);
 
     //loop until SIGINT from an admin
     while(true) {
         //connect to client and get client address
         struct sockaddr_in clientAddress;
-        if((commandConnection = clientToServer(&serverAddress, &clientAddress)) == -1) {
+        if((commandConnection = clientToServer(sock, &serverAddress, &clientAddress)) == -1) {
+            cout << "connection failed: " << commandConnection << endl;
             continue;
         }
 
         //get command from client
-        vector<string> command = recieveCommand();
-        if(command == NULL) {
+        vector<string> command = recieveCommand(commandConnection);
+        if(command.size() == 0) {
             close(commandConnection);
             continue;
         }
 
         //connect to open socket on client for data transfer
-        if((dataConnection = serverToClient(stoi(*command[1]), &clientAddress)) == -1) {
+        if((dataConnection = serverToClient(atoi((command[1]).c_str()), &clientAddress)) == -1) {
             continue;
         }
 
         //list command
-        if(*command[0] == "-l") {
-            cout << "-l" << *command[1] << endl;
+        if(command[0] == "-l") {
+            cout << command[0] << " "<< command[1] << endl;
             sendMessage(dataConnection, "list");
         }
 
         //get file command
-        else if(*command[0] == "-g") {
-            cout << "-g" << *command[1] << endl;
+        else if(command[0] == "-g") {
+            cout << command[0] << " "<< command[1] << endl;
             sendMessage(dataConnection, "file");
         }
 
@@ -105,6 +114,21 @@ int main(int argc, char **argv) {
 //=============================================================================================
 //=================================       FUNCTIONS        ====================================
 //=============================================================================================
+//listenSocket:  Opens the listening socket with the serveraddress
+//arguments:     serverAddress(address specified by server and user input)
+//return values: returns an open socket
+int listenSocket(struct sockaddr_in *serverAddress) {
+
+    int sock = openSocket();
+
+    //bind socket to specified address and port number
+    bind(sock, (struct sockaddr *) serverAddress, sizeof(*serverAddress));
+
+    //wait for client side
+    listen(sock,5);
+
+    return sock;
+}
 
 //recieveCommand: recieves and parses command message from client
 //arguments:      commandConnection(open connection to client)
@@ -112,23 +136,28 @@ int main(int argc, char **argv) {
 vector<string> recieveCommand(int commandConnection) {
     int numBytes;
     char message[MAXSIZE];
+    vector<string> command;
+
 
     //get message from client
     if((numBytes = recv(commandConnection, &message, MAXSIZE-1, 0)) == -1) {
         cout << "Error recieving message from client" << endl;
         cout << "Closing connection to client" << endl;
-        return NULL;
+        return command;
     }
 
     message[numBytes] = '\0';
 
     //help with breaking down the command goes to this post
-    //https://codereview.stackexchange.com/questions/159628/c-split-string-into-a-vector
+    //https://gist.github.com/conrjac/5387376
     string temp = message;
-    vector<string> command;
-    istringstream ss{temp};                     //open string stream with message
-    using itr = istream_iterator<string>;       //create iterator for ss
-    vector<string> command{itr{ss}, itr{}};     //iterate and grab all elements of ss
+
+    istringstream iss(temp);
+    string token;
+    while(getline(iss,token,' ')) {
+        command.push_back(token);
+    }
+
 
     return command;
 }
@@ -138,19 +167,11 @@ vector<string> recieveCommand(int commandConnection) {
 //arguments:      serverAddress(address specified by server and user input)
 //                clientAddress(pass by reference to grab client address from accept)
 //return values:  returns open connection from client to server
-int clientToServer(struct sockaddr_in *serverAddress, struct sockaddr_in *clientAddress) {
-    //open socket on server
-    int sock = openSocket();
-
-    //bind socket to specified address and port number
-    bind(sock, (struct sockaddr *) serverAddress, sizeof(*serverAddress));
-
-    //wait for client side
-    listen(sock,5);
-
+int clientToServer(int sock, struct sockaddr_in *serverAddress, struct sockaddr_in *clientAddress) {
     //https://www.geeksforgeeks.org/accept-system-call/
     //help with accepting client address goes to this article
-    int connection = accept(sock, (struct sockaddr *) clientAddress, sizeof(*clientAddress));
+    unsigned int clientLength = sizeof(clientAddress);
+    int connection = accept(sock, (struct sockaddr *) clientAddress, &clientLength);
 
     return connection;
 }
@@ -164,7 +185,7 @@ int serverToClient(int clientPort, struct sockaddr_in *clientAddress) {
 
     clientAddress->sin_port = htons(clientPort);
 
-    if(connect(sock, (struct sockaddr *) clientAddress, sizeof(clientAddress)) == -1) {
+    if(connect(sock, (struct sockaddr *) clientAddress, sizeof(*clientAddress)) == -1) {
         cout << "Error establishing connection Q to client" << endl;
         return -1;
     }
@@ -228,6 +249,8 @@ void checkInput(int argc, char **argv) {
 //return values: tells whether the message was sent correctly or whether the connection has been closed
 void sendMessage(int connection, string message) {
     int size = strlen(message.c_str());
+
+    cout << "message: " << message << endl;
 
     if(send(connection, message.c_str(), size, 0) == -1) {
         cout << "Error sending message to server" << endl;

@@ -20,7 +20,7 @@ import sys
 #=============================================================================================
 
 #checkInput:    checks for valid function call and proper use input, exits and
-                    #prints error message if there is an issue
+#               prints error message if there is an issue
 #arguments:     none
 #return values: none
 def checkInput():
@@ -30,7 +30,7 @@ def checkInput():
         exit(1)
 
     #check if portnumber field is int
-    if not(isinstance(sys.argv[2],int)):
+    if(int(sys.argv[2]) == 0):
         print("Port invalid: please provide an integer port number\n")
         exit(1)
 
@@ -40,25 +40,26 @@ def checkInput():
         exit(1)
 
     #check for list command and matching inputs
-    if(sys.argv[3] == "-1"):
-        if(isinstance(sys.argv[4],int) and len(sys.argv) == 5 and sys.argv[2] != sys.argv[4]):
-            return
+    if(sys.argv[3] in "-l"):
+        if(int(sys.argv[4]) != 0 and len(sys.argv) == 5 and sys.argv[2] != sys.argv[4]):
+            return int(sys.argv[4])
         else:
             print("Command invalid: ftclient flip# <port#1> -l <port#2>\n")
             exit(1)
 
     #check for get command and matching inputs
-    if(sys.argv[3] == "-g"):
-        if(isinstance(sys.argv[5],int) and len(sys.argv) == 6 and sys.argv[2] != sys.argv[5]):
-            return
+    if(sys.argv[3] in "-g"):
+        if(int(sys.argv[5]) != 0 and len(sys.argv) == 6 and sys.argv[2] != sys.argv[5]):
+            return int(sys.argv[5])
         else:
             print("Command invalid: ftclient flip# <port#1> -g <filename> <port#2>\n")
             exit(1)
 
-#initialConnection: connects to open server socket based on user input
+
+#commandConnection: connects to open server socket based on user input
 #arguments:         none
 #return values:     connection to open socket on the server
-def initialConnection():
+def commandConnection():
     server = sys.argv[1] + ".engr.oregonstate.edu"
     port = int(sys.argv[2])
     connection = socket(AF_INET,SOCK_STREAM)
@@ -66,24 +67,38 @@ def initialConnection():
     return connection
 
 
-#dataTransaction
-#arguments:         none
-#return values:     none
-#def dataTransaction():
+#commandConnection: opens socket and waits for server to connect
+#arguments:         port(integer port number to wait on)
+#return values:     connection to the server
+def dataConnection(port):
+    sock = socket(AF_INET,SOCK_STREAM)
+    sock.bind(("",int(port)))
+    sock.listen(1)
+    connection, addr = sock.accept()
+    return connection
 
 
-#=============================================================================================
-#===================================       TESTS        ======================================
-#=============================================================================================
+#sendCommand:   Sends command message to server
+#arguments:     connection(open connection to server)
+#return values: none
+def sendCommand(connection):
+    message = sys.argv[3]
+    if(message == "-l"):
+        message += " " + sys.argv[4]
+    elif(message == "-g"):
+        message += " " +  sys.argv[5] + " " + sys.argv[4]
 
-#test for making sure connectio was properly established
-def testConnection(connection):
-    connection.send("test sent")
-    message = connection.recv(50)
-    if(message == "test success"):
-        print("Test passed: connection working")
-    else:
-        print("Test failed: connection not working")
+    connection.send(message)
+    print(message)  #delete later
+
+
+#recieveData:   Sends command message to server
+#arguments:     connection(open connection to server)
+#return values: none
+def recieveData(connection):
+    data = connection.recv(50)
+    data = "data: " + data
+    print(data)
 
 
 #=============================================================================================
@@ -92,8 +107,11 @@ def testConnection(connection):
 
 #program called by "python ftclient.py <flip#> <port_number> <command> <if g: file_name> <port_number>"
 if __name__ == "__main__":
-    checkInput()                        #check for valid program call
-    connection = initialConnection()    #start initial connection
-    testConnection(connection);
-    #dataTransaction(connection)        #make secondary connection and transfer requested data
-    connection.close()                  #close socket before exit
+    portNum = checkInput()                            #check for valid program call
+    commandConnection = commandConnection() #start initial connection
+    sendCommand(commandConnection)          #send command to server
+    dataConnection = dataConnection(portNum)       #make secondary connection
+    recieveData(dataConnection)             #recieve data from server
+
+    dataConnection.close()                  #clean up
+    commandConnection.close()
