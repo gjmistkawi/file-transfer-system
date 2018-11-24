@@ -50,10 +50,11 @@ void getAddress(int portNum, struct sockaddr_in *address);
 int openSocket();
 void checkInput(int argc, char **argv);
 int listenSocket(struct sockaddr_in *serverAddress);
+void sendDirectory(int dataConnection);
 
 
 //NOT DONT ==================================================================
-void sendMessage(int connection, string message);
+int sendMessage(int connection, string message);
 void sendFile();
 void sendList();
 
@@ -91,20 +92,21 @@ int main(int argc, char **argv) {
         }
 
         //connect to open socket on client for data transfer
-        if((dataConnection = serverToClient(atoi((command[1]).c_str()), &clientAddress)) == -1) {
+        if((dataConnection = serverToClient(atoi((command[2]).c_str()), &clientAddress)) == -1) {
             continue;
         }
 
         //list command
         if(command[0] == "-l") {
+            cout << "List directory requested on port " << command[2] << "." << endl;
+            cout << "Sending directory contents to " << command[1] << ":" << command[2] << "." << endl;
             sendDirectory(dataConnection);
-            sendMessage(dataConnection, "list");
         }
 
         //get file command
         else if(command[0] == "-g") {
-            cout << command[0] << " "<< command[1] << endl;
-            sendMessage(dataConnection, "file");
+            cout << command[0] << " "<< command[2] << endl;
+            int x = sendMessage(dataConnection, "file");
         }
 
         close(commandConnection);
@@ -122,7 +124,7 @@ int main(int argc, char **argv) {
 void sendDirectory(int dataConnection) {
     //help with grabbing contents from a directory goes to this article
     //http://www.martinbroadhurst.com/list-the-files-in-a-directory-in-c.html
-    vecotr<string> contents;
+    vector<string> contents;
     string dirName = ".";
     DIR* dirp = opendir(dirName.c_str());
 
@@ -132,10 +134,13 @@ void sendDirectory(int dataConnection) {
     }
 
     closedir(dirp);
+    string message = "";
 
     for(int i = 0; i < contents.size(); i++) {
-        sendMessage(dataConnection, contents[i]);
+        message += contents[i] + " ";
     }
+
+    int x = sendMessage(dataConnection, message);
 }
 
 
@@ -183,7 +188,7 @@ vector<string> recieveCommand(int commandConnection) {
         command.push_back(token);
     }
 
-
+    cout << "Connection from " << command[1] << "." << endl;
     return command;
 }
 
@@ -272,13 +277,14 @@ void checkInput(int argc, char **argv) {
 //sendMessage:   Sends user message to already established connection
 //arguments:     username(handle to prepend to each message) connection(open socket connection)
 //return values: tells whether the message was sent correctly or whether the connection has been closed
-void sendMessage(int connection, string message) {
+int sendMessage(int connection, string message) {
     int size = strlen(message.c_str());
 
-    cout << "message: " << message << endl;
-
     if(send(connection, message.c_str(), size, 0) == -1) {
-        cout << "Error sending message to server" << endl;
-        cout << "Closing connection to server" << endl;
+        cout << "Error sending message to client" << endl;
+        cout << "Closing connection to client" << endl;
+        return -1;
     }
+
+    return 0;
 }

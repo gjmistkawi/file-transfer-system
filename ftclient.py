@@ -84,10 +84,10 @@ def dataConnection(port):
 def sendCommand(connection):
     message = sys.argv[3]
     if(message == "-l"):
-        message += " " + sys.argv[4]
+        message += " " + sys.argv[1] + " " + sys.argv[4]
         command = "-l"
     elif(message == "-g"):
-        message += " " +  sys.argv[5] + " " + sys.argv[4]
+        message += " " + sys.argv[1] + " " + sys.argv[5] + " " + sys.argv[4]
         command = "-g"
 
     connection.send(message)
@@ -99,9 +99,10 @@ def sendCommand(connection):
 #return values: none
 def recieveData(connection):
     temp = connection.recv(2000)
+    data = temp + " "
     while(temp != ""):
         temp = connection.recv(2000)
-        data += temp
+        data += temp + " "
     return data
 
 #printDirectory: prints the directory contents from the server
@@ -110,29 +111,32 @@ def recieveData(connection):
 def printDirectory(data):
     for file in data.split():
         print(file)
+    print
 
 #saveFile:      saves file data that was sent from server
 #arguments:     file contents sent from server
 #return values: none
-def saveFile(data):
+def saveFile(data, filename):
     print(data)
-    
+
 #=============================================================================================
 #=================================         MAIN          =====================================
 #=============================================================================================
 
 #program called by "python ftclient.py <flip#> <port_number> <command> <if g: file_name> <port_number>"
 if __name__ == "__main__":
-    portNum = checkInput()                            #check for valid program call
-    commandConnection = commandConnection() #start initial connection
-    command = sendCommand(commandConnection)          #send command to server
-    dataConnection = dataConnection(portNum)       #make secondary connection
-    data = recieveData(dataConnection)             #recieve data from server
+    portNum = checkInput()                    #check for valid program call
+    commandConnection = commandConnection()   #start initial connection
+    command = sendCommand(commandConnection)  #send command to server
+    dataConnection = dataConnection(portNum)  #make secondary connection
+    data = recieveData(dataConnection)        #recieve data from server
 
-    if(command == "-l"):
+    if(command == "-l"):                      #list directory
+        print("Receiving directory structure from " + sys.argv[1] + ":" + sys.argv[4])
         printDirectory(data)
-    elif(command == "-g"):
-        saveFile(data)
+    elif(command == "-g"):                    #save file
+        print("Receiving \"" + sys.argv[4] + "\" " + sys.argv[1] + ":" + sys.argv[5])
+        saveFile(data, sys.argv[4])
 
     dataConnection.close()                  #clean up
     commandConnection.close()
