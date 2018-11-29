@@ -2,9 +2,11 @@
 George Mistkawi
 ftserver.cpp
 Description:
-
-
-
+Server opens and waits for a client to connect and send a command. Once a
+command is recieved the server will either send the current working directory
+or the contents of a specified file. Once the transaction is complete, the
+connection is closed and the server continues to listen for more connections
+until a SIGINT is sent.
 
 CS 372 - 400
 Last Modified 11/21/2018
@@ -45,21 +47,18 @@ Last Modified 11/21/2018
 using namespace std;
 
 
-vector<string> recieveCommand(int commandConnection);
-int clientToServer(int sock, struct sockaddr_in *serverAddress, struct sockaddr_in *clientAddress);
-int serverToClient(int clientPort, struct sockaddr_in *clientAddress);
-void getAddress(int portNum, struct sockaddr_in *address);
-int openSocket();
-void checkInput(int argc, char **argv);
-int listenSocket(struct sockaddr_in *serverAddress);
-void sendDirectory(int dataConnection);
-void sendFile(int dataConnection, string fileName);
-bool fileExists(string fileName);
+vector<string> recieveCommand(int commandConnection);                   //get command from client
+int clientToServer(int sock, struct sockaddr_in *serverAddress, struct sockaddr_in *clientAddress); //listen on local socket for client
+int serverToClient(int clientPort, struct sockaddr_in *clientAddress);  //connet to open socket on the client
+void getAddress(int portNum, struct sockaddr_in *address);              //get desired address object, stored by reference
+int openSocket();                                                       //opens any available socket and passes back
+void checkInput(int argc, char **argv);                                 //check for valid user input
+int listenSocket(struct sockaddr_in *serverAddress);                    //opens a valid socket to listen for client
+void sendDirectory(int dataConnection);                                 //sends the contents of cwd to client
+void sendFile(int dataConnection, string fileName);                     //sends file based on client request
+bool fileExists(string fileName);                                       //checks whether or not a file exists
+int sendMessage(int connection, string message);                        //sends messages to client
 
-//NOT DONT ==================================================================
-int sendMessage(int connection, string message);
-void sendFile();
-void sendList();
 
 
 //=============================================================================================
@@ -138,6 +137,7 @@ bool fileExists(string fileName) {
     return f.good();
 }
 
+
 //sendFile:      Sends the file to client in pieces until complete
 //arguments:     dataConnection(open connection to the client)
 //               fileName(name of the client specified file)
@@ -214,6 +214,7 @@ int listenSocket(struct sockaddr_in *serverAddress) {
     return sock;
 }
 
+
 //recieveCommand: recieves and parses command message from client
 //arguments:      commandConnection(open connection to client)
 //return values:  returns a vector of the command message
@@ -260,6 +261,7 @@ int clientToServer(int sock, struct sockaddr_in *serverAddress, struct sockaddr_
     return connection;
 }
 
+
 //serverToClient: Opens a second connection for data transfer
 //arguments:      clientSocket(port number sent from client side)
 //                clientAddress(pointer to address object recieved by accept statement)
@@ -277,6 +279,7 @@ int serverToClient(int clientPort, struct sockaddr_in *clientAddress) {
     return sock;
 }
 
+
 //getAddress:    Gets address for connection to be established
 //arguments:     portNum(desired port number)
 //               address(pointer to a socket address struct, passed by reference)
@@ -286,6 +289,7 @@ void getAddress(int portNum, struct sockaddr_in *address) {
     address->sin_port = htons(portNum);
     address->sin_addr.s_addr = INADDR_ANY;
 }
+
 
 //openSocket:    Opens an available socket for communication
 //arguments:     none
@@ -300,6 +304,7 @@ int openSocket() {
 
     return sock;
 }
+
 
 //checkInput:    Checks the users command line arguments to check if program is being called correctly
 //arguments:     argc(the number of command line arguments)
@@ -323,14 +328,9 @@ void checkInput(int argc, char **argv) {
 }
 
 
-
-//===============================================================================================
-//===============================================================================================
-//===============================================================================================
-
 //sendMessage:   Sends user message to already established connection
 //arguments:     username(handle to prepend to each message) connection(open socket connection)
-//return values: tells whether the message was sent correctly or whether the connection has been closed
+//return values: returns -1 if message send failed, and the size of the message sent otherwise
 int sendMessage(int connection, string message) {
     int size = strlen(message.c_str());
     size = send(connection, message.c_str(), size, 0);

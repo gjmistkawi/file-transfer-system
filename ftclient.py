@@ -3,14 +3,12 @@
 #George Mistkawi
 #ftclient.py
 #Description:
-#
-#
-#
-#
-#
+#Client can either ask server for a list of the contents of the current working directory,
+#or ask for a file by name. The client makes the request over a TCP connection to an open
+#socket on the server, and then sets up a local socket to recieve data from the server.
 #
 #CS 372 - 400
-#Last Modified 11/21/2018
+#Last Modified 11/24/2018
 
 from socket import *
 import os.path
